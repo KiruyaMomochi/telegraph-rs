@@ -20,12 +20,9 @@ pub mod error;
 pub mod types;
 
 pub use error::*;
+use kuchiki::{ElementData, NodeData, NodeRef, traits::TendrilSink};
 pub use types::*;
 
-use libxml::{
-    parser::Parser,
-    tree::{self, NodeType},
-};
 use reqwest::{
     multipart::{Form, Part},
     Client, Response,
@@ -426,47 +423,57 @@ fn read_to_bytes<P: AsRef<Path>>(path: P) -> Result<Vec<u8>> {
 /// assert_eq!(node, r#"[{"tag":"p","attrs":null,"children":["Hello, world"]}]"#);
 /// ```
 pub fn html_to_node(html: &str) -> String {
-    let parser = Parser::default_html();
-    let document = parser.parse_string(html).unwrap();
-    let node = document
-        .get_root_element()
-        .unwrap()
-        .get_first_element_child()
-        .unwrap();
-    let nodes = node
-        .get_child_nodes()
-        .into_iter()
-        .map(|node| html_to_node_inner(&node))
-        .collect::<Vec<_>>();
+    let document = kuchiki::parse_html().one(html);
+    let body = document.last_child().unwrap().last_child().unwrap();
+    let nodes = doms_to_node(body.children());
     serde_json::to_string(&nodes).unwrap()
 }
 
-fn html_to_node_inner(node: &tree::Node) -> Option<Node> {
-    match node.get_type() {
-        Some(NodeType::TextNode) => Some(Node::Text(node.get_content())),
-        Some(NodeType::ElementNode) => Some(Node::NodeElement(NodeElement {
-            tag: node.get_name(),
-            attrs: {
-                let attrs = node.get_attributes();
-                if attrs.is_empty() {
-                    None
-                } else {
-                    Some(attrs)
-                }
-            },
-            children: {
-                let childs = node.get_child_nodes();
-                if childs.is_empty() {
-                    None
-                } else {
-                    childs
-                        .into_iter()
-                        .map(|node| html_to_node_inner(&node))
-                        .collect::<Option<Vec<_>>>()
-                }
-            },
-        })),
+/// Parse the iterator of dom nodes to node structure
+pub fn doms_to_node<T>(nodes: T) -> Option<Vec<Node>>
+where T: Iterator<Item = NodeRef> {
+    nodes.map(|node| dom_to_node_inner(&node))
+    .collect()
+}
+
+/// Parse the dom node to node structure
+pub fn dom_to_node_inner(node: &NodeRef) -> Option<Node> {
+    match node.data() {
+        NodeData::Text(text) => Some(Node::Text(text.borrow().clone())),
+        NodeData::Element(element_data) => {
+            Some(Node::NodeElement(NodeElement {
+                tag: element_data.name.local.to_string(),
+                attrs: element_data_to_attribute(element_data),
+                children: node
+                    .children()
+                    .map(|node| dom_to_node_inner(&node))
+                    .collect(),
+            }))
+        }
         _ => None,
+    }
+}
+
+fn element_data_to_attribute(element_data: &ElementData) -> Option<HashMap<String, String>> {
+    let map = &element_data.attributes.borrow().map;
+    if map.is_empty() {
+        return None;
+    }
+
+    let mut attrs = HashMap::new();
+    map.iter()
+        .filter(|(name, _attr)| {
+            name.local.eq_str_ignore_ascii_case("href")
+                || name.local.eq_str_ignore_ascii_case("src")
+        })
+        .for_each(|(name, attr)| {
+            attrs.insert(name.local.to_string(), attr.value.clone());
+        });
+
+    if attrs.is_empty() {
+        None
+    } else {
+        Some(attrs)
     }
 }
 
