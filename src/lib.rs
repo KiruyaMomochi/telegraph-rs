@@ -445,13 +445,13 @@ fn read_to_bytes<P: AsRef<Path>>(path: P) -> Result<Vec<u8>> {
 pub fn html_to_node(html: &str) -> String {
     let document = kuchikiki::parse_html().one(html);
     let body = document.last_child().unwrap().last_child().unwrap();
-    let nodes = doms_to_node(body.children());
+    let nodes = doms_to_nodes(body.children());
     serde_json::to_string(&nodes).unwrap()
 }
 
 #[cfg(feature = "kuchiki")]
 /// Parse the iterator of dom nodes to node structure
-pub fn doms_to_node<T>(nodes: T) -> Vec<Option<Node>>
+pub fn doms_to_nodes<T>(nodes: T) -> Vec<Option<Node>>
 where T: Iterator<Item = NodeRef> {
     nodes.map(|node| dom_to_node(&node))
     .collect()
