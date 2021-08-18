@@ -219,7 +219,6 @@ impl Telegraph {
         content: &str,
         return_content: bool,
     ) -> Result<Page> {
-        // TODO: content HTML 形式
         let response = send!(self
             .client
             .post("https://api.telegra.ph/createPage")
@@ -233,6 +232,16 @@ impl Telegraph {
             ]))?;
         response.json::<ApiResult<Page>>().await?.into()
     }
+
+    pub async fn create_page_doms(
+        &self,
+        title: &str,
+        content: impl Iterator<Item = NodeRef>,
+        return_content: bool) -> Result<Page> {
+            let nodes = doms_to_nodes(content);
+            let content = serde_json::to_string(&nodes).unwrap();
+            self.create_page(title, &content, return_content).await
+        }
 
     /// Use this method to update information about a Telegraph account.
     ///
