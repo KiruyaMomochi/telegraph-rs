@@ -432,12 +432,12 @@ pub fn html_to_node(html: &str) -> String {
 /// Parse the iterator of dom nodes to node structure
 pub fn doms_to_node<T>(nodes: T) -> Option<Vec<Node>>
 where T: Iterator<Item = NodeRef> {
-    nodes.map(|node| dom_to_node_inner(&node))
+    nodes.map(|node| dom_to_node(&node))
     .collect()
 }
 
 /// Parse the dom node to node structure
-pub fn dom_to_node_inner(node: &NodeRef) -> Option<Node> {
+pub fn dom_to_node(node: &NodeRef) -> Option<Node> {
     match node.data() {
         NodeData::Text(text) => Some(Node::Text(text.borrow().clone())),
         NodeData::Element(element_data) => {
@@ -446,7 +446,7 @@ pub fn dom_to_node_inner(node: &NodeRef) -> Option<Node> {
                 attrs: element_data_to_attribute(element_data),
                 children: node
                     .children()
-                    .map(|node| dom_to_node_inner(&node))
+                    .map(|node| dom_to_node(&node))
                     .collect(),
             }))
         }
