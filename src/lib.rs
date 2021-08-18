@@ -451,7 +451,7 @@ pub fn html_to_node(html: &str) -> String {
 
 #[cfg(feature = "kuchiki")]
 /// Parse the iterator of dom nodes to node structure
-pub fn doms_to_node<T>(nodes: T) -> Option<Vec<Node>>
+pub fn doms_to_node<T>(nodes: T) -> Vec<Option<Node>>
 where T: Iterator<Item = NodeRef> {
     nodes.map(|node| dom_to_node(&node))
     .collect()
