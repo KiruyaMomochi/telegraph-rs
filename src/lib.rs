@@ -429,7 +429,7 @@ fn read_to_bytes<P: AsRef<Path>>(path: P) -> Result<Vec<u8>> {
 /// use telegraph_rs::html_to_node;
 ///
 /// let node = html_to_node("<p>Hello, world</p>");
-/// assert_eq!(node, r#"[{"tag":"p","attrs":null,"children":["Hello, world"]}]"#);
+/// assert_eq!(node, r#"[{"tag":"p","children":["Hello, world"]}]"#);
 /// ```
 pub fn html_to_node(html: &str) -> String {
     let document = kuchiki::parse_html().one(html);
