@@ -450,13 +450,19 @@ pub fn dom_to_node(node: &NodeRef) -> Option<Node> {
     match node.data() {
         NodeData::Text(text) => Some(Node::Text(text.borrow().clone())),
         NodeData::Element(element_data) => {
+            let children: Vec<Node> = node
+                .children()
+                .filter_map(|node| dom_to_node(&node))
+                .collect();
+            let children = if children.is_empty() {
+                None
+            } else {
+                Some(children)
+            };
             Some(Node::NodeElement(NodeElement {
                 tag: element_data.name.local.to_string(),
                 attrs: element_data_to_attribute(element_data),
-                children: node
-                    .children()
-                    .map(|node| dom_to_node(&node))
-                    .collect(),
+                children: children,
             }))
         }
         _ => None,
