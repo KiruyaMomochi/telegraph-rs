@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
 
 /// This object represents a Telegraph account.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Account {
     /// Account name, helps users with several accounts remember which they are currently using.
     ///
@@ -29,7 +29,7 @@ pub struct Account {
 }
 
 /// This object represents a list of Telegraph articles belonging to an account. Most recently created articles first.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PageList {
     /// Total number of pages belonging to the target Telegraph account.
     pub total_count: i32,
@@ -38,7 +38,7 @@ pub struct PageList {
 }
 
 /// This object represents a page on Telegraph.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Page {
     /// Path to the page.
     pub path: String,
@@ -67,7 +67,7 @@ pub struct Page {
 }
 
 /// This object represents the number of page views for a Telegraph article.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PageViews {
     /// Number of page views for the target page.
     pub views: i32,
@@ -102,14 +102,14 @@ pub struct NodeElement {
 }
 
 /// This object represents the upload result
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum UploadResult {
     Error { error: String },
     Source(Vec<ImageInfo>),
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ImageInfo {
     /// Path of the file uploaded.
     pub src: String,
