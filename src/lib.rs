@@ -19,11 +19,15 @@ pub mod types;
 pub mod utils;
 
 pub use error::*;
+use kuchikiki::{ElementData, NodeData, NodeRef, traits::TendrilSink};
 pub use types::*;
 pub use utils::*;
 
-use reqwest::{multipart::Form, Client, Response};
-use std::collections::HashMap;
+use reqwest::{
+    multipart::{Form, Part},
+    Client, Response,
+};
+use std::{collections::HashMap, fs::File, io::Read, path::Path};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -407,6 +411,93 @@ fn html_to_node_inner(node: &html_parser::Node) -> Option<Node> {
             },
         })),
         _ => None,
+    }
+}
+
+#[cfg(feature = "upload")]
+fn guess_mime<P: AsRef<Path>>(path: P) -> String {
+    let mime = mime_guess::from_path(path).first_or(mime_guess::mime::TEXT_PLAIN);
+    let mut s = format!("{}/{}", mime.type_(), mime.subtype());
+    if let Some(suffix) = mime.suffix() {
+        s.push('+');
+        s.push_str(suffix.as_str());
+    }
+    s
+}
+
+#[cfg(feature = "upload")]
+fn read_to_bytes<P: AsRef<Path>>(path: P) -> Result<Vec<u8>> {
+    let mut bytes = vec![];
+    let mut file = File::open(path)?;
+    file.read_to_end(&mut bytes)?;
+    Ok(bytes)
+}
+
+/// Parse html to node string
+///
+/// ```rust
+/// use telegraph_rs::html_to_node;
+///
+/// let node = html_to_node("<p>Hello, world</p>");
+/// assert_eq!(node, r#"[{"tag":"p","attrs":null,"children":["Hello, world"]}]"#);
+/// ```
+#[cfg(feature = "kuchiki")]
+pub fn html_to_node(html: &str) -> String {
+    let document = kuchikiki::parse_html().one(html);
+    let body = document.last_child().unwrap().last_child().unwrap();
+    let nodes = doms_to_node(body.children());
+    serde_json::to_string(&nodes).unwrap()
+}
+
+#[cfg(feature = "kuchiki")]
+/// Parse the iterator of dom nodes to node structure
+pub fn doms_to_node<T>(nodes: T) -> Option<Vec<Node>>
+where T: Iterator<Item = NodeRef> {
+    nodes.map(|node| dom_to_node_inner(&node))
+    .collect()
+}
+
+#[cfg(feature = "kuchiki")]
+/// Parse the dom node to node structure
+pub fn dom_to_node_inner(node: &NodeRef) -> Option<Node> {
+    match node.data() {
+        NodeData::Text(text) => Some(Node::Text(text.borrow().clone())),
+        NodeData::Element(element_data) => {
+            Some(Node::NodeElement(NodeElement {
+                tag: element_data.name.local.to_string(),
+                attrs: element_data_to_attribute(element_data),
+                children: node
+                    .children()
+                    .map(|node| dom_to_node_inner(&node))
+                    .collect(),
+            }))
+        }
+        _ => None,
+    }
+}
+
+fn element_data_to_attribute(element_data: &ElementData) -> Option<HashMap<String, Option<String>>> {
+    let map = &element_data.attributes.borrow().map;
+    if map.is_empty() {
+        return None;
+    }
+
+    let mut attrs = HashMap::new();
+    map.iter()
+        .filter(|(name, _attr)| {
+            // FIXME: Now the key of function return type is Option<String>, we can
+            // handle empty value as None.
+            name.local.eq_str_ignore_ascii_case("href")
+                || name.local.eq_str_ignore_ascii_case("src")
+        })
+        .for_each(|(name, attr)| {
+            attrs.insert(name.local.to_string(), Some(attr.value.clone()));
+        });
+
+    if attrs.is_empty() {
+        None
+    } else {
+        Some(attrs)
     }
 }
 
